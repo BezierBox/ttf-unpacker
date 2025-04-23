@@ -249,75 +249,87 @@ uint16_t get_glyph_index(ifstream &file, const TableRecord &cmap,
   return 0; // not found
 }
 
-std::map<uint16_t, uint16_t> glyph_index_to_unicode_map(std::ifstream &file, const TableRecord &cmap) {
-  std::map<uint16_t, uint16_t> glyphNumToUnicode;
-
-  file.seekg(cmap.offset);
-  read_u16(file); // skip version
-  uint16_t numSubtables = read_u16(file);
-
-  uint32_t formatOffset = 0;
-  for (int i = 0; i < numSubtables; ++i) {
-      uint16_t platformID = read_u16(file);
-      uint16_t encodingID = read_u16(file);
-      uint32_t offset = read_u32(file);
-      if (platformID == 3 && (encodingID == 1 || encodingID == 10)) {
-        formatOffset = cmap.offset + offset;
-          break;
-      }
-  }
-
-  if (formatOffset == 0) return glyphNumToUnicode;
-
-  file.seekg(formatOffset);
-  uint16_t format = read_u16(file);
-  if (format != 4) return glyphNumToUnicode; // only works for format 4
-
-  uint16_t length = read_u16(file);
-  read_u16(file);  // skip language
-  uint16_t segCountX2 = read_u16(file);
-  uint16_t segCount = segCountX2 / 2;
-  file.seekg(6, std::ios::cur);  // skip searchRange, entrySelector, rangeShift
-
-  std::vector<uint16_t> endCode(segCount);
-  for (int i = 0; i < segCount; ++i) endCode[i] = read_u16(file);
-  read_u16(file);  // skip reservedPad
-  std::vector<uint16_t> startCode(segCount);
-  for (int i = 0; i < segCount; ++i) startCode[i] = read_u16(file);
-  std::vector<int16_t> idDelta(segCount);
-  for (int i = 0; i < segCount; ++i) idDelta[i] = read_i16(file);
-  std::vector<uint16_t> idRangeOffset(segCount);
-  for (int i = 0; i < segCount; ++i) idRangeOffset[i] = read_u16(file);
-
-  uint32_t glyphIdArrayStart = file.tellg();
-
-  for (int i = 0; i < segCount; ++i) {
-      for (uint16_t code = startCode[i]; code <= endCode[i]; ++code) {
-        if (idRangeOffset[i] == 0) {
-          uint16_t glyphIndex = (code + idDelta[i]) % 65536;
-          glyphNumToUnicode[glyphIndex] = code;
-        } else {
-          uint32_t pos = glyphIdArrayStart + 2 * i + idRangeOffset[i] + 2 * (code - startCode[i]);
-          uint32_t backup = file.tellg();
-          file.seekg(pos);
-          uint16_t glyphID = read_u16(file);
-          file.seekg(backup);
-          if (glyphID != 0) {
-              uint16_t glyphIndex = (glyphID + idDelta[i]) % 65536;
-              glyphNumToUnicode[glyphIndex] = code;
-          }
-        }
-      }
-  }
-
-  return glyphNumToUnicode;
-}
-
 vector<vector<Point>> read_glyph(ifstream &file, map<string, TableRecord> tables, vector<uint32_t> loca, int unicode) {
   int glyph_index = get_glyph_index(file, tables["cmap"], unicode);
   auto glyph = read_simple_glyph(file, tables["glyf"], loca[glyph_index]);
 
   return glyph;
+}
+
+std::map<uint16_t, std::vector<uint16_t>> gntu_map(ifstream &file, const TableRecord &cmap) {
+
+  std::map<uint16_t, std::vector<uint16_t>> glyphToUnicode;
+
+  file.seekg(cmap.offset);
+  read_u16(file); // version
+  uint16_t numSubtables = read_u16(file);
+
+  uint32_t bestSubtableOffset = 0;
+  for (int i = 0; i < numSubtables; ++i) {
+    uint16_t platformID = read_u16(file);
+    uint16_t encodingID = read_u16(file);
+    uint32_t offset = read_u32(file);
+
+    if (platformID == 3 && (encodingID == 1 || encodingID == 10)) {
+      bestSubtableOffset = cmap.offset + offset;
+      break;
+    }
+  }
+
+  if (bestSubtableOffset == 0) {
+    std::cerr << "No usable cmap subtable found." << std::endl;
+    return glyphToUnicode;
+  }
+
+  file.seekg(bestSubtableOffset);
+  uint16_t format = read_u16(file);
+  if (format != 4) {
+    std::cerr << "Only Format 4 cmap is supported." << std::endl;
+    return glyphToUnicode;
+  }
+
+  uint16_t length = read_u16(file);
+  read_u16(file); // language
+  uint16_t segCountX2 = read_u16(file);
+  uint16_t segCount = segCountX2 / 2;
+
+  file.seekg(6, std::ios::cur); // skip searchRange, entrySelector, rangeShift
+
+  std::vector<uint16_t> endCode(segCount);
+  for (int i = 0; i < segCount; ++i)
+    endCode[i] = read_u16(file);
+  read_u16(file); // reservedPad
+  std::vector<uint16_t> startCode(segCount);
+  for (int i = 0; i < segCount; ++i)
+    startCode[i] = read_u16(file);
+  std::vector<int16_t> idDelta(segCount);
+  for (int i = 0; i < segCount; ++i)
+    idDelta[i] = read_i16(file);
+  std::vector<uint16_t> idRangeOffset(segCount);
+  for (int i = 0; i < segCount; ++i)
+    idRangeOffset[i] = read_u16(file);
+
+  uint32_t glyphIdArrayStart = file.tellg();
+  for (uint16_t charCode = 0; charCode < 65535; charCode++) {
+    for (int i = 0; i < segCount; ++i) {
+      if (startCode[i] <= charCode && charCode <= endCode[i]) {
+        if (idRangeOffset[i] == 0) {
+          glyphToUnicode[(charCode + idDelta[i]) % 65536].push_back(charCode);
+        } else {
+          std::streampos pos = glyphIdArrayStart + 2 * i + idRangeOffset[i] +
+                              2 * (charCode - startCode[i]);
+          file.seekg(pos);
+          uint16_t glyphId = read_u16(file);
+          if (glyphId == 0)
+            glyphToUnicode[0].push_back(charCode);
+          glyphToUnicode[(charCode + idDelta[i]) % 65536].push_back(charCode);
+        }
+      }
+    }
+    //cout << charCode;
+  }
+
+  return glyphToUnicode;
 }
 
 // Main Program
@@ -369,6 +381,18 @@ vector<vector<Point>> extract_glyph(int unicode) {
   return glyphs;
 }
 
+EMSCRIPTEN_KEEPALIVE
+map<uint16_t, vector<uint16_t>> glyph_index_to_unicode_map() {
+  ifstream font(filename, ios::binary);
+  if (!font)
+    throw runtime_error("Font not found");
+
+  auto tables = read_table_directory(font);
+  map<uint16_t, vector<uint16_t>> glyphNumToUnicode = gntu_map(font, tables["cmap"]);
+  font.close();
+  return glyphNumToUnicode;
+}
+
 EMSCRIPTEN_BINDINGS(my_module) {
   emscripten::value_object<Point>("Point")
     .field("x", &Point::x)
@@ -378,7 +402,7 @@ EMSCRIPTEN_BINDINGS(my_module) {
   emscripten::register_vector<Point>("VectorPoint");
   emscripten::register_vector<std::vector<Point>>("VectorVectorPoint");
   emscripten::register_map<uint16_t, std::vector<std::vector<Point>>>("MapUint16ToVectorVectorPoint");
-  emscripten::register_map<uint16_t, uint16_t>("glyphNumToUnicode");
+  emscripten::register_map<uint16_t, vector<uint16_t>>("glyphNumToUnicode");
 
   //Bind functions
   emscripten::function("open_font", &open_font);
