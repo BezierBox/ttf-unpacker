@@ -1,0 +1,68 @@
+<input type="file" id="fileInput" class="h" />
+<input type="text" id="char" class="h" />
+<input type="submit" id="charSubmit" class="h" />
+<p id="output">Output: (nothing yet)</p>
+<script src="main.js"></script>
+<script>
+    const input = document.getElementById("fileInput");
+    const char = document.getElementById("char");
+    const charSubmit = document.getElementById("charSubmit");
+    const output = document.getElementById("output");
+
+    // Ensure this runs after Emscripten is ready
+    createModule().then((Module) => {
+        input.classList.toggle("h");
+        input.addEventListener("change", (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const data = new Uint8Array(e.target.result);
+                const filename = `/tmp/${file.name}`;
+
+                // Write file to virtual filesystem
+                Module.FS.writeFile(filename, data);
+
+                // Call your C++ function via ccall
+                Module.open_font(filename);
+
+                input.classList.toggle("h");
+                char.classList.toggle("h");
+                charSubmit.classList.toggle("h");
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        charSubmit.addEventListener("click", (event) => {
+            const value = char.value;
+
+            if (value.length == 1) {
+                const path = Module.extract_glyph(value.charCodeAt(0));
+                const pathArray = [];
+
+                for (let i = 0; i < path.size(); ++i) {
+                    const innerVec = path.get(i);
+                    let innerArray = [];
+                    for (let j = 0; j < innerVec.size(); ++j) {
+                        const value = innerVec.get(j);
+                        innerArray.push(value);
+                    }
+                    pathArray.push(innerArray);
+                }
+
+                const pathArrayJSON = JSON.stringify(pathArray);
+                output.innerHTML = `Output: ${pathArrayJSON}`;
+            } else {
+                output.innerHTML =
+                    "Output: Error, please input exactly 1 char.";
+            }
+        });
+    });
+</script>
+
+<style>
+    .h {
+        display: none;
+    }
+</style>
