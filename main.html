@@ -56,6 +56,13 @@
             } else {
                 output.innerHTML =
                     "Output: Error, please input exactly 1 char.";
+                var retMap = Module.glyph_index_to_unicode_map();
+                console.log(retMap.size());
+                for (var i = 0; i < retMap.size(); i++) {
+                    var key = retMap.keys().get(i);
+                    console.log("Map glyph index: ", key);
+                    console.log("Map unicode vector item 1: ", retMap.get(key).get(0));
+                }
             }
         });
     });
