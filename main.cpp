@@ -382,14 +382,15 @@ vector<vector<Point>> extract_glyph(int unicode) {
 }
 
 EMSCRIPTEN_KEEPALIVE
-map<uint16_t, vector<uint16_t>> glyph_index_to_unicode_map() {
+std::map<uint16_t, std::vector<uint16_t>> glyph_index_to_unicode_map() {
   ifstream font(filename, ios::binary);
   if (!font)
     throw runtime_error("Font not found");
 
   auto tables = read_table_directory(font);
-  map<uint16_t, vector<uint16_t>> glyphNumToUnicode = gntu_map(font, tables["cmap"]);
+  std::map<uint16_t, std::vector<uint16_t>> glyphNumToUnicode = gntu_map(font, tables["cmap"]);
   font.close();
+
   return glyphNumToUnicode;
 }
 
@@ -402,7 +403,8 @@ EMSCRIPTEN_BINDINGS(my_module) {
   emscripten::register_vector<Point>("VectorPoint");
   emscripten::register_vector<std::vector<Point>>("VectorVectorPoint");
   emscripten::register_map<uint16_t, std::vector<std::vector<Point>>>("MapUint16ToVectorVectorPoint");
-  emscripten::register_map<uint16_t, vector<uint16_t>>("glyphNumToUnicode");
+  emscripten::register_vector<uint16_t>("vector<uint16_t>");
+  emscripten::register_map<uint16_t, std::vector<uint16_t>>("map<uint16_t, vector<uint16_t>>");
 
   //Bind functions
   emscripten::function("open_font", &open_font);

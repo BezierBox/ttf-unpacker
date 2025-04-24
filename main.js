@@ -6850,6 +6850,7 @@ var ___cxa_free_exception = createExportWrapper('__cxa_free_exception', 1);
 var __Z16find_glyph_indext = Module['__Z16find_glyph_indext'] = createExportWrapper('_Z16find_glyph_indext', 1);
 var __Z14extract_glyphsv = Module['__Z14extract_glyphsv'] = createExportWrapper('_Z14extract_glyphsv', 1);
 var __Z13extract_glyphi = Module['__Z13extract_glyphi'] = createExportWrapper('_Z13extract_glyphi', 2);
+var __Z26glyph_index_to_unicode_mapv = Module['__Z26glyph_index_to_unicode_mapv'] = createExportWrapper('_Z26glyph_index_to_unicode_mapv', 1);
 var ___getTypeName = createExportWrapper('__getTypeName', 1);
 var _fflush = createExportWrapper('fflush', 1);
 var _emscripten_stack_get_end = wasmExports['emscripten_stack_get_end']
@@ -6914,10 +6915,10 @@ function invoke_vii(index,a1,a2) {
   }
 }
 
-function invoke_iiji(index,a1,a2,a3) {
+function invoke_viiii(index,a1,a2,a3,a4) {
   var sp = stackSave();
   try {
-    return getWasmTableEntry(index)(a1,a2,a3);
+    getWasmTableEntry(index)(a1,a2,a3,a4);
   } catch(e) {
     stackRestore(sp);
     if (!(e instanceof EmscriptenEH)) throw e;
@@ -6925,10 +6926,10 @@ function invoke_iiji(index,a1,a2,a3) {
   }
 }
 
-function invoke_viiii(index,a1,a2,a3,a4) {
+function invoke_iiji(index,a1,a2,a3) {
   var sp = stackSave();
   try {
-    getWasmTableEntry(index)(a1,a2,a3,a4);
+    return getWasmTableEntry(index)(a1,a2,a3);
   } catch(e) {
     stackRestore(sp);
     if (!(e instanceof EmscriptenEH)) throw e;
