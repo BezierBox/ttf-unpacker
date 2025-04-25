@@ -256,11 +256,11 @@ vector<vector<Point>> read_glyph(ifstream &file, map<string, TableRecord> tables
   return glyph;
 }
 
-vector<vector<vector<Point>>> read_glyphs(ifstream &file, map<string, TableRecord> tables, vector<uint32_t> loca, int num_glyphs) {
-  vector<vector<vector<Point>>> glyphs;
+map<uint16_t, vector<vector<Point>>> read_glyphs(ifstream &file, map<string, TableRecord> tables, vector<uint32_t> loca, int num_glyphs) {
+  map<uint16_t, vector<vector<Point>>> glyphs;
   for (int i = 0; i < num_glyphs; i++) {
     auto glyph = read_simple_glyph(file, tables["glyf"], loca[i]);
-    glyphs.push_back(glyph);
+    glyphs[i] = glyph;
   }
 
   return glyphs;
@@ -291,7 +291,7 @@ int find_glyph_index(uint16_t unicode) {
 }
 
 EMSCRIPTEN_KEEPALIVE
-vector<vector<vector<Point>>> extract_glyphs() {
+map<uint16_t, vector<vector<Point>> extract_glyphs() {
   ifstream font(filename, ios::binary);
   if (!font)
     throw runtime_error("Font not found");
@@ -335,8 +335,8 @@ EMSCRIPTEN_BINDINGS(my_module) {
     .field("onCurve", &Point::onCurve);
 
   emscripten::register_vector<Point>("VectorPoint");
-  emscripten::register_vector<std::vector<Point>>("VectorVectorPoint");
-  emscripten::register_vector<std::vector<std::vector<Point>>>("VectorVectorVectorPoint");
+  emscripten::register_vector<std::vector<Point>>>("VectorVectorPoint");
+  emscripten::register_map<uint16_t, std::vector<Point>>>("VectorVectorVectorPoint");
 
   //Bind functions
   emscripten::function("open_font", &open_font);
