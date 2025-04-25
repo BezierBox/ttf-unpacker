@@ -386,7 +386,7 @@ vector<vector<vector<Point>>> extract_glyphs() {
 }
 
 EMSCRIPTEN_KEEPALIVE
-vector<vector<vector<Point>>> extract_glyph(int unicode) {
+vector<vector<Point>> extract_glyph(int unicode) {
   ifstream font(filename, ios::binary);
   if (!font)
     throw runtime_error("Font not found");
@@ -401,7 +401,7 @@ vector<vector<vector<Point>>> extract_glyph(int unicode) {
   auto glyphs = read_glyph(font, tables, loca, unicode);
   font.close();
 
-  return {glyphs};
+  return glyphs;
 }
 
 EMSCRIPTEN_KEEPALIVE

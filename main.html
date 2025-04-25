@@ -75,8 +75,10 @@
                         const value = innerVec.get(j);
                         innerArray.push(value);
                     }
+                    innerVec.delete();
                     pathArray.push(innerArray);
                 }
+                path.delete();
 
                 const pathArrayJSON = JSON.stringify(pathArray);
                 output.innerHTML = `Output: ${pathArrayJSON}`;
