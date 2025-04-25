@@ -25,7 +25,33 @@
                 Module.FS.writeFile(filename, data);
 
                 // Call your C++ function via ccall
-                Module.open_font(filename);
+                Module.open_font(filename)
+
+                const glyphs = Module.extract_glyphs();
+                const glyph_map = {}
+
+                for (let i = 0; i < glyphs.size(); ++i) {
+                    const vec = glyphs.get(i);
+                    const pathArray = [];
+
+                    for (let j = 0; j < vec.size(); ++j) {
+                        const innerVec = vec.get(j);
+                        let innerArray = [];
+                        for (let z = 0; z < innerVec.size(); ++z) {
+                            const value = innerVec.get(z);
+                            innerArray.push(value);
+                        }
+                        pathArray.push(innerArray);
+                        innerVec.delete()
+                    }
+                    vec.delete();
+
+                    glyph_map[i] = pathArray;
+                }
+                glyphs.delete()
+
+                const glyphMapJSON = JSON.stringify(glyph_map);
+                output.innerHTML = `Output: ${glyphMapJSON}`;
 
                 input.classList.toggle("h");
                 char.classList.toggle("h");
@@ -39,6 +65,7 @@
 
             if (value.length == 1) {
                 const path = Module.extract_glyph(value.charCodeAt(0));
+                console.log(path);
                 const pathArray = [];
 
                 for (let i = 0; i < path.size(); ++i) {

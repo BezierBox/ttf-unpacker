@@ -332,6 +332,16 @@ std::map<uint16_t, std::vector<uint16_t>> gntu_map(ifstream &file, const TableRe
   return glyphToUnicode;
 }
 
+vector<vector<vector<Point>>> read_glyphs(ifstream &file, map<string, TableRecord> tables, vector<uint32_t> loca, int num_glyphs) {
+  vector<vector<vector<Point>>> glyphs;
+  for (int i = 0; i < num_glyphs; i++) {
+    auto glyph = read_simple_glyph(file, tables["glyf"], loca[i]);
+    glyphs.push_back(glyph);
+  }
+
+  return glyphs;
+}
+
 // Main Program
 EMSCRIPTEN_KEEPALIVE
 void open_font(const std::string font_name) {
@@ -349,7 +359,7 @@ int find_glyph_index(uint16_t unicode) {
   ifstream font(filename, ios::binary);
   if (!font)
     throw runtime_error("Font not found");
-  
+
   auto tables = read_table_directory(font);
   int glyph_index = get_glyph_index(font, tables["cmap"], unicode);
 
@@ -357,18 +367,31 @@ int find_glyph_index(uint16_t unicode) {
 }
 
 EMSCRIPTEN_KEEPALIVE
-map<uint16_t,vector<vector<Point>>> extract_glyphs() {
-  throw runtime_error("Not implemented");
-}
-
-EMSCRIPTEN_KEEPALIVE
-vector<vector<Point>> extract_glyph(int unicode) {
+vector<vector<vector<Point>>> extract_glyphs() {
   ifstream font(filename, ios::binary);
   if (!font)
     throw runtime_error("Font not found");
 
   auto tables = read_table_directory(font);
-  // cmap_sub = find_cmap_subtable(font, tables["cmap"]);
+
+  uint16_t numGlyphs = get_num_glyphs(font, tables["maxp"]);
+  uint16_t format = get_index_to_loc_format(font, tables["head"]);
+
+  auto loca = read_loca(font, tables["loca"], numGlyphs, format == 0);
+
+  auto glyphs = read_glyphs(font, tables, loca, numGlyphs);
+  font.close();
+
+  return glyphs;
+}
+
+EMSCRIPTEN_KEEPALIVE
+vector<vector<vector<Point>>> extract_glyph(int unicode) {
+  ifstream font(filename, ios::binary);
+  if (!font)
+    throw runtime_error("Font not found");
+
+  auto tables = read_table_directory(font);
 
   uint16_t numGlyphs = get_num_glyphs(font, tables["maxp"]);
   uint16_t format = get_index_to_loc_format(font, tables["head"]);
@@ -378,7 +401,7 @@ vector<vector<Point>> extract_glyph(int unicode) {
   auto glyphs = read_glyph(font, tables, loca, unicode);
   font.close();
 
-  return glyphs;
+  return {glyphs};
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -405,11 +428,12 @@ EMSCRIPTEN_BINDINGS(my_module) {
   emscripten::register_map<uint16_t, std::vector<std::vector<Point>>>("MapUint16ToVectorVectorPoint");
   emscripten::register_vector<uint16_t>("vector<uint16_t>");
   emscripten::register_map<uint16_t, std::vector<uint16_t>>("map<uint16_t, vector<uint16_t>>");
+  emscripten::register_vector<std::vector<std::vector<Point>>>("VectorVectorVectorPoint");
 
   //Bind functions
   emscripten::function("open_font", &open_font);
   emscripten::function("find_glyph_index", &find_glyph_index);
-  emscripten::function("extract_glyphs", &extract_glyphs);
   emscripten::function("extract_glyph", &extract_glyph);
   emscripten::function("glyph_index_to_unicode_map", &glyph_index_to_unicode_map);
+  emscripten::function("extract_glyphs", &extract_glyphs);
 }
