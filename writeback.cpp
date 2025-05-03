@@ -259,8 +259,9 @@ int writeback(std::string input_filename, std::string output_filename, std::vect
 
     bool longLocaFormat = read_u16(font, tableMap["head"].offset + 50) != 0;
 
-    for (int i = 0; i < glyphIndices.size(); i++) {
-        int w_one = writeback_one(font, glyphIndices[i], pointsVector[i], tableMap, numTables, longLocaFormat);
+    std::cerr << "starting loop:\n";
+    for (int i = 0; i < pointsVector.size(); i++) {
+        int w_one = writeback_one(font, i, pointsVector[i], tableMap, numTables, longLocaFormat);
         if (w_one) {
             return 1;
         }

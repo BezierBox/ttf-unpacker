@@ -10,6 +10,6 @@ struct WBPoint {
     bool endPt;
 };
 
-int writeback(std::string input_filename, std::string output_filename, int glyphIndex, std::vector<WBPoint> points);
+int writeback(std::string input_filename, std::string output_filename, std::vector<int> glyphIndices, std::vector<std::vector<WBPoint>> points);
 
 #endif
