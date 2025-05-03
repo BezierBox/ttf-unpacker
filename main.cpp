@@ -423,12 +423,14 @@ std::map<uint16_t, std::vector<uint16_t>> glyph_index_to_unicode_map() {
 }
 
 EMSCRIPTEN_KEEPALIVE
-void write_entries(vector<vector<WBPoint>> points) {
+void write_entries(map<uint16_t, vector<WBPoint>> points) {
     std::vector<int> glyphIndices;
-    for (int i = 0; i < points.size(); i++) {
-        glyphIndices.push_back(i);
+    std::vector<std::vector<WBPoint>> pointsVectors;
+    for (const auto& pair : points) {
+        glyphIndices.push_back(pair.first);
+        pointsVectors.push_back(pair.second);
     }
-    writeback(filename, filename, glyphIndices, points);
+    writeback(filename, filename, glyphIndices, pointsVectors);
 }
 
 EMSCRIPTEN_BINDINGS(my_module) {
@@ -452,6 +454,8 @@ EMSCRIPTEN_BINDINGS(my_module) {
 
   emscripten::register_vector<WBPoint>("VectorWBPoint");
   emscripten::register_vector<std::vector<WBPoint>>("VectorVectorWBPoint");
+  emscripten::register_map<uint16_t, std::vector<WBPoint>>("MapUint16VectorWBPoint");
+
 
 
   // Bind functions

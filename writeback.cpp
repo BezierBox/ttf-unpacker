@@ -262,7 +262,7 @@ int writeback(std::string input_filename, std::string output_filename, std::vect
 
     std::cerr << "starting loop:\n";
     for (int i = 0; i < pointsVector.size(); i++) {
-        int w_one = writeback_one(font, i, pointsVector[i], tableMap, numTables, longLocaFormat);
+        int w_one = writeback_one(font, glyphIndices[i], pointsVector[i], tableMap, numTables, longLocaFormat);
         if (w_one) {
             return 1;
         }
