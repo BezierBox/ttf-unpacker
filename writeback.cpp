@@ -223,7 +223,26 @@ void updateLengthRecord(std::vector<uint8_t>& font, uint32_t length) {
     }
 }
 
-int writeback(std::string input_filename, std::string output_filename, int glyphIndex, std::vector<WBPoint> points) {
+int writeback_one(std::vector<uint8_t>& font, int glyphIndex, std::vector<WBPoint> points, std::unordered_map<std::string, TableDirectoryEntry> tableMap, int numTables, bool longLocaFormat) {
+    if (!tableMap.count("glyf") || !tableMap.count("loca") || !tableMap.count("head")) {
+        return 1;
+    }
+
+    uint32_t newOffset = modify_glyph(font, tableMap["glyf"], tableMap["loca"], glyphIndex, longLocaFormat, points); // modify glyph index 1
+
+    // update loca table
+    uint16_t numGlyphs = get_num_glyphs(font, tableMap["maxp"]);
+    uint32_t newDiff = update_loca(font, tableMap["loca"], glyphIndex, newOffset, longLocaFormat, numGlyphs);
+
+    padTo4(font);
+    updateLengthRecord(font, newDiff + tableMap["glyf"].length);
+
+    update_checksums(font, tableMap);
+
+    return 0;
+}
+
+int writeback(std::string input_filename, std::string output_filename, std::vector<int> glyphIndices, std::vector<std::vector<WBPoint>> pointsVector) {
     std::ifstream in(input_filename, std::ios::binary);
     if (!in) {
         return 1;
@@ -239,16 +258,13 @@ int writeback(std::string input_filename, std::string output_filename, int glyph
     }
 
     bool longLocaFormat = read_u16(font, tableMap["head"].offset + 50) != 0;
-    uint32_t newOffset = modify_glyph(font, tableMap["glyf"], tableMap["loca"], glyphIndex, longLocaFormat, points); // modify glyph index 1
 
-    // update loca table
-    uint16_t numGlyphs = get_num_glyphs(font, tableMap["maxp"]);
-    uint32_t newDiff = update_loca(font, tableMap["loca"], glyphIndex, newOffset, longLocaFormat, numGlyphs);
-
-    padTo4(font);
-    updateLengthRecord(font, newDiff + tableMap["glyf"].length);
-
-    update_checksums(font, tableMap);
+    for (int i = 0; i < glyphIndices.size(); i++) {
+        int w_one = writeback_one(font, glyphIndices[i], pointsVector[i], tableMap, numTables, longLocaFormat);
+        if (w_one) {
+            return 1;
+        }
+    }
 
     std::ofstream out(output_filename, std::ios::binary);
     out.write(reinterpret_cast<const char*>(font.data()), font.size());
