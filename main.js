@@ -1,6 +1,6 @@
 var createModule = (() => {
-  var _scriptName = typeof document != 'undefined' ? document.currentScript?.src : undefined;
-  if (typeof __filename != 'undefined') _scriptName = _scriptName || __filename;
+  var _scriptName = import.meta.url;
+  
   return (
 async function(moduleArg = {}) {
   var moduleRtn;
@@ -40,6 +40,11 @@ var ENVIRONMENT_IS_NODE = typeof process == 'object' && typeof process.versions 
 var ENVIRONMENT_IS_SHELL = !ENVIRONMENT_IS_WEB && !ENVIRONMENT_IS_NODE && !ENVIRONMENT_IS_WORKER;
 
 if (ENVIRONMENT_IS_NODE) {
+  // When building an ES module `require` is not normally available.
+  // We need to use `createRequire()` to construct the require()` function.
+  const { createRequire } = await import('module');
+  /** @suppress{duplicate} */
+  var require = createRequire(import.meta.url);
 
 }
 
@@ -88,7 +93,12 @@ if (ENVIRONMENT_IS_NODE) {
   var fs = require('fs');
   var nodePath = require('path');
 
-  scriptDirectory = __dirname + '/';
+  // EXPORT_ES6 + ENVIRONMENT_IS_NODE always requires use of import.meta.url,
+  // since there's no way getting the current absolute path of the module when
+  // support for that is not available.
+  if (!import.meta.url.startsWith('data:')) {
+    scriptDirectory = nodePath.dirname(require('url').fileURLToPath(import.meta.url)) + '/';
+  }
 
 // include: node_shell_read.js
 readBinary = (filename) => {
@@ -449,13 +459,15 @@ function isExportedByForceFilesystem(name) {
  * their build, or no symbols that no longer exist.
  */
 function hookGlobalSymbolAccess(sym, func) {
-  // In MODULARIZE mode the generated code runs inside a function scope and not
-  // the global scope, and JavaScript does not provide access to function scopes
-  // so we cannot dynamically modify the scrope using `defineProperty` in this
-  // case.
-  //
-  // In this mode we simply ignore requests for `hookGlobalSymbolAccess`. Since
-  // this is a debug-only feature, skipping it is not major issue.
+  if (typeof globalThis != 'undefined' && !Object.getOwnPropertyDescriptor(globalThis, sym)) {
+    Object.defineProperty(globalThis, sym, {
+      configurable: true,
+      get() {
+        func();
+        return undefined;
+      }
+    });
+  }
 }
 
 function missingGlobal(sym, msg) {
@@ -705,7 +717,11 @@ function createExportWrapper(name, nargs) {
 
 var wasmBinaryFile;
 function findWasmBinary() {
+  if (Module['locateFile']) {
     return locateFile('main.wasm');
+  }
+  // Use bundler-friendly `new URL(..., import.meta.url)` pattern; works in browsers too.
+  return new URL('main.wasm', import.meta.url).href;
 }
 
 function getBinarySync(file) {
@@ -6529,6 +6545,8 @@ var wasmImports = {
   /** @export */
   invoke_viiiiiiiiiiiiiii,
   /** @export */
+  invoke_viij,
+  /** @export */
   invoke_viijii
 };
 var wasmExports = await createWasm();
@@ -6539,10 +6557,11 @@ var __Z16find_glyph_indext = Module['__Z16find_glyph_indext'] = createExportWrap
 var __Z14extract_glyphsv = Module['__Z14extract_glyphsv'] = createExportWrapper('_Z14extract_glyphsv', 1);
 var __Z13extract_glyphi = Module['__Z13extract_glyphi'] = createExportWrapper('_Z13extract_glyphi', 2);
 var __Z26glyph_index_to_unicode_mapv = Module['__Z26glyph_index_to_unicode_mapv'] = createExportWrapper('_Z26glyph_index_to_unicode_mapv', 1);
+var __Z13write_entriesNSt3__26vectorINS0_I7WBPointNS_9allocatorIS1_EEEENS2_IS4_EEEE = Module['__Z13write_entriesNSt3__26vectorINS0_I7WBPointNS_9allocatorIS1_EEEENS2_IS4_EEEE'] = createExportWrapper('_Z13write_entriesNSt3__26vectorINS0_I7WBPointNS_9allocatorIS1_EEEENS2_IS4_EEEE', 1);
 var ___getTypeName = createExportWrapper('__getTypeName', 1);
 var _fflush = createExportWrapper('fflush', 1);
-var _malloc = createExportWrapper('malloc', 1);
 var _strerror = createExportWrapper('strerror', 1);
+var _malloc = createExportWrapper('malloc', 1);
 var _free = createExportWrapper('free', 1);
 var _setThrew = createExportWrapper('setThrew', 2);
 var __emscripten_tempret_set = createExportWrapper('_emscripten_tempret_set', 1);
@@ -6658,6 +6677,17 @@ function invoke_viiiii(index,a1,a2,a3,a4,a5) {
   }
 }
 
+function invoke_iiiii(index,a1,a2,a3,a4) {
+  var sp = stackSave();
+  try {
+    return getWasmTableEntry(index)(a1,a2,a3,a4);
+  } catch(e) {
+    stackRestore(sp);
+    if (!(e instanceof EmscriptenEH)) throw e;
+    _setThrew(1, 0);
+  }
+}
+
 function invoke_i(index) {
   var sp = stackSave();
   try {
@@ -6680,17 +6710,6 @@ function invoke_viiiiii(index,a1,a2,a3,a4,a5,a6) {
   }
 }
 
-function invoke_iiiii(index,a1,a2,a3,a4) {
-  var sp = stackSave();
-  try {
-    return getWasmTableEntry(index)(a1,a2,a3,a4);
-  } catch(e) {
-    stackRestore(sp);
-    if (!(e instanceof EmscriptenEH)) throw e;
-    _setThrew(1, 0);
-  }
-}
-
 function invoke_iiiiiii(index,a1,a2,a3,a4,a5,a6) {
   var sp = stackSave();
   try {
@@ -6706,6 +6725,17 @@ function invoke_v(index) {
   var sp = stackSave();
   try {
     getWasmTableEntry(index)();
+  } catch(e) {
+    stackRestore(sp);
+    if (!(e instanceof EmscriptenEH)) throw e;
+    _setThrew(1, 0);
+  }
+}
+
+function invoke_viij(index,a1,a2,a3) {
+  var sp = stackSave();
+  try {
+    getWasmTableEntry(index)(a1,a2,a3);
   } catch(e) {
     stackRestore(sp);
     if (!(e instanceof EmscriptenEH)) throw e;
@@ -7394,10 +7424,4 @@ for (const prop of Object.keys(Module)) {
     return real_createModule(arg);
   }
 })();
-if (typeof exports === 'object' && typeof module === 'object') {
-  module.exports = createModule;
-  // This default export looks redundant, but it allows TS to import this
-  // commonjs style module.
-  module.exports.default = createModule;
-} else if (typeof define === 'function' && define['amd'])
-  define([], () => createModule);
+export default createModule;

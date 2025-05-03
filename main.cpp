@@ -10,6 +10,9 @@
 #include <string>
 #include <vector>
 
+#include "writeback.h"
+#include "reorganize.h"
+
 using namespace std;
 using namespace emscripten;
 
@@ -23,7 +26,7 @@ struct Point {
   bool onCurve;
 };
 
-string filename;
+std::string filename;
 
 // Reading Binary Data
 
@@ -349,9 +352,11 @@ void open_font(const std::string font_name) {
   if (!font)
     throw runtime_error("Font not found");
 
-  filename = font_name;
-
   font.close();
+
+  reorganize(font_name);
+
+  filename = "output.ttf";
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -417,11 +422,24 @@ std::map<uint16_t, std::vector<uint16_t>> glyph_index_to_unicode_map() {
   return glyphNumToUnicode;
 }
 
+EMSCRIPTEN_KEEPALIVE
+void write_entries(vector<vector<WBPoint>> points) {
+    for (int i = 0; i < points.size(); i++) {
+        writeback(filename, filename, i, points[i]);
+    }
+}
+
 EMSCRIPTEN_BINDINGS(my_module) {
   emscripten::value_object<Point>("Point")
     .field("x", &Point::x)
     .field("y", &Point::y)
     .field("onCurve", &Point::onCurve);
+
+  emscripten::value_object<WBPoint>("WBPoint")
+    .field("x", &WBPoint::x)
+    .field("y", &WBPoint::y)
+    .field("onCurve", &WBPoint::onCurve)
+    .field("endPt", &WBPoint::endPt);
 
   emscripten::register_vector<Point>("VectorPoint");
   emscripten::register_vector<std::vector<Point>>("VectorVectorPoint");
@@ -430,10 +448,15 @@ EMSCRIPTEN_BINDINGS(my_module) {
   emscripten::register_map<uint16_t, std::vector<uint16_t>>("map<uint16_t, vector<uint16_t>>");
   emscripten::register_vector<std::vector<std::vector<Point>>>("VectorVectorVectorPoint");
 
-  //Bind functions
+  emscripten::register_vector<WBPoint>("VectorWBPoint");
+  emscripten::register_vector<std::vector<WBPoint>>("VectorVectorWBPoint");
+
+
+  // Bind functions
   emscripten::function("open_font", &open_font);
   emscripten::function("find_glyph_index", &find_glyph_index);
   emscripten::function("extract_glyph", &extract_glyph);
   emscripten::function("glyph_index_to_unicode_map", &glyph_index_to_unicode_map);
   emscripten::function("extract_glyphs", &extract_glyphs);
+  emscripten::function("write_entries", &write_entries);
 }
