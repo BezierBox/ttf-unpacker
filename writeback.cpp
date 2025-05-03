@@ -236,6 +236,7 @@ int writeback_one(std::vector<uint8_t>& font, int glyphIndex, std::vector<WBPoin
 
     padTo4(font);
     updateLengthRecord(font, newDiff + tableMap["glyf"].length);
+    tableMap["glyf"].length += newDiff;
 
     update_checksums(font, tableMap);
 
